@@ -4,23 +4,56 @@ Instructions for AI coding agents working on this project.
 
 ## Project Overview
 
-Itch is an MCP server and CLI tool for Socratic questioning. It enables AI agents to
-interactively explore topics with users through pre-generated questions.
+Itch is an MCP server and CLI tool for Socratic questioning. It enables AI agents to interactively explore topics with users through pre-generated questions.
 
-**Key components:**
-- `src/itch/server.py` - MCP server with single `itch` tool
-- `src/itch/cli.py` - Typer CLI with `ask`, `demo`, `version` commands
-- `src/itch/models.py` - Pydantic models (Question, Choice, Answer, ItchResponse)
-- `src/itch/questioner.py` - Interactive questionnaire using questionary
-- `src/itch/prompts.py` - Internal prompt templates (NOT exposed via MCP)
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Integration Options                     │
+├─────────────────────────────┬───────────────────────────────┤
+│   OpenCode Plugin           │   MCP Server                  │
+│   (plugin/index.ts)         │   (src/itch/server.py)        │
+│   - TypeScript wrapper      │   - FastMCP server            │
+│   - Spawns Python CLI       │   - Direct Python execution   │
+└─────────────────────────────┴───────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Python CLI Layer                         │
+│   src/itch/cli.py - Typer CLI (ask, demo, version)          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Core Components                          │
+├─────────────────────────────┬───────────────────────────────┤
+│   src/itch/questioner.py    │   src/itch/models.py          │
+│   - Interactive UI          │   - Pydantic models           │
+│   - questionary integration │   - Question, Choice, Answer  │
+└─────────────────────────────┴───────────────────────────────┘
+```
+
+### Key Components
+
+| File | Description |
+|------|-------------|
+| `src/itch/server.py` | MCP server with single `itch` tool |
+| `src/itch/cli.py` | Typer CLI with `ask`, `demo`, `version` commands |
+| `src/itch/models.py` | Pydantic models (Question, Choice, Answer, ItchResponse) |
+| `src/itch/questioner.py` | Interactive questionnaire using questionary |
+| `src/itch/prompts.py` | Internal prompt templates (NOT exposed via MCP) |
+| `plugin/index.ts` | OpenCode plugin (TypeScript wrapper for Python CLI) |
 
 ## Build & Development Commands
+
+### Python
 
 ```bash
 # Install dependencies
 uv sync
 
-# Install with dev dependencies
+# Install with dev dependencies  
 uv sync --all-extras
 
 # Run MCP server
@@ -32,7 +65,41 @@ uv run itch demo learning
 uv run itch version
 ```
 
-## Testing
+### OpenCode Plugin (TypeScript)
+
+```bash
+# Navigate to plugin directory
+cd plugin
+
+# Install dependencies
+npm install
+
+# Type check
+npm run typecheck
+
+# Lint
+npm run lint
+
+# Run all checks
+npm run check
+
+# Test plugin locally (from project root)
+# Add to opencode.json: "plugins": ["./plugin"]
+```
+
+## Quality Checks
+
+### Run All Checks
+
+```bash
+# Python checks
+uv run ruff check src/ tests/ && uv run ty check src/ && uv run pytest
+
+# TypeScript checks (in plugin/)
+cd plugin && npm run check
+```
+
+### Python Testing
 
 ```bash
 # Run all tests
@@ -53,14 +120,14 @@ uv run pytest tests/test_server.py::TestValidateQuestions::test_empty_questions_
 # Run tests matching a pattern
 uv run pytest -k "validation"
 
-# Run with coverage (if installed)
+# Run with coverage
 uv run pytest --cov=itch
 ```
 
-## Linting & Type Checking
+### Python Linting & Type Checking
 
 ```bash
-# Run ruff linter (strict ruleset)
+# Run ruff linter (strict ruleset with 50+ rule categories)
 uv run ruff check src/ tests/
 
 # Run ruff with auto-fix
@@ -68,27 +135,40 @@ uv run ruff check --fix src/ tests/
 
 # Run ty type checker (Astral's fast type checker)
 uv run ty check src/
+```
 
-# Run all checks
-uv run ruff check src/ tests/ && uv run ty check src/ && uv run pytest
+### TypeScript Linting & Type Checking
+
+```bash
+cd plugin
+
+# Type check with TypeScript compiler
+npm run typecheck    # or: npx tsc --noEmit
+
+# Lint with ESLint (strict TypeScript rules)
+npm run lint         # or: npx eslint index.ts
+
+# Run both
+npm run check
 ```
 
 ## Code Style Guidelines
 
-### Python Version
+### Python
+
+**Version & Syntax:**
 - Target Python 3.11+ (see `pyproject.toml`)
 - Use modern syntax: `list[X]` not `List[X]`, `X | None` not `Optional[X]`
 
-### Formatting
+**Formatting:**
 - Line length: 100 characters
-- Use ruff for linting with strict ruleset (50+ rule categories enabled)
-- Use ty for type checking (Astral's 10,500+ tokens/sec type checker)
+- Use ruff for linting with strict ruleset
+- Use ty for type checking
 
-### Imports
+**Imports:**
 Order imports as: stdlib, third-party, local. Use absolute imports.
 ```python
 import json
-import subprocess
 from typing import Annotated, Literal
 
 from mcp.server.fastmcp import FastMCP
@@ -97,12 +177,7 @@ from pydantic import BaseModel, Field
 from itch.models import Answer, Choice, Question
 ```
 
-### Type Hints
-- Always use type hints for function signatures
-- Use `Annotated` with `Field` for MCP tool parameters
-- Use `Literal` for constrained string types
-- Use `| None` instead of `Optional`
-
+**Type Hints:**
 ```python
 def validate_questions(
     questions: list[Question],
@@ -112,11 +187,7 @@ def validate_questions(
 status: Literal["complete", "cancelled", "error"]
 ```
 
-### Pydantic Models
-- Use `Field(description=...)` for all fields exposed to MCP
-- Use `Field(default_factory=list)` for mutable defaults
-- Document models with docstrings
-
+**Pydantic Models:**
 ```python
 class Choice(BaseModel):
     """A single choice option for a question."""
@@ -124,38 +195,37 @@ class Choice(BaseModel):
     value: str = Field(description="Identifier returned when selected")
 ```
 
-### Naming Conventions
-- Classes: PascalCase (`ItchResponse`, `Question`)
-- Functions/variables: snake_case (`validate_questions`, `processed_questions`)
-- Constants: UPPER_SNAKE_CASE (`MAX_QUESTIONS`, `SESSION_TIMEOUT`)
-- Private functions: prefix with underscore (`_helper_function`)
-
-### Error Handling
+**Error Handling:**
 - Return structured error responses, don't raise exceptions to MCP clients
 - Use tuple returns for validation: `(result, error_message)`
 - Include context in error messages (e.g., question index)
 
-```python
-if not questions:
-    return [], "At least one question is required"
+### TypeScript
 
-if len(q.choices) < MIN_CHOICES:
-    return [], f"Question {i + 1} must have at least {MIN_CHOICES} choices"
+**Style:**
+- Use `tool.schema` (Zod) for schema definitions
+- Use the `tool()` helper from `@opencode-ai/plugin`
+- Return JSON strings from tool execute functions
+
+**Example:**
+```typescript
+import { tool } from "@opencode-ai/plugin";
+const z = tool.schema;
+
+const QuestionSchema = z.object({
+  text: z.string().min(1).describe("The question text"),
+  choices: z.array(ChoiceSchema).min(2),
+});
 ```
 
-### Docstrings
-Use triple quotes for all public functions and classes:
-```python
-def validate_questions(
-    questions: list[Question],
-) -> tuple[list[Question], str | None]:
-    """Validate questions and auto-assign IDs.
-    
-    Returns:
-        Tuple of (processed_questions, error_message).
-        error_message is None on success.
-    """
-```
+### Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Classes | PascalCase | `ItchResponse`, `Question` |
+| Functions/variables | snake_case (Python) / camelCase (TS) | `validate_questions` / `validateQuestions` |
+| Constants | UPPER_SNAKE_CASE | `MAX_QUESTIONS`, `DEFAULT_TIMEOUT_MS` |
+| Private functions | underscore prefix | `_helper_function` |
 
 ## Testing Patterns
 
@@ -185,9 +255,27 @@ This project uses OpenSpec for spec-driven development. See `openspec/AGENTS.md`
 - Making breaking changes
 - Changing architecture or patterns
 
+**Current changes:**
+- `add-opencode-plugin` - OpenCode plugin implementation (46/49 tasks complete)
+
 <!-- OPENSPEC:START -->
 Always open `@/openspec/AGENTS.md` when the request:
 - Mentions planning or proposals (words like proposal, spec, change, plan)
 - Introduces new capabilities, breaking changes, architecture shifts
 - Sounds ambiguous and you need the authoritative spec before coding
 <!-- OPENSPEC:END -->
+
+## Plugin Architecture Notes
+
+The OpenCode plugin (`plugin/index.ts`) uses a hybrid architecture:
+
+1. **TypeScript wrapper** - Registers `itch` tool with OpenCode
+2. **Python subprocess** - Spawns `itch ask` CLI for interactive questioning
+3. **Multi-step discovery** - Finds Python itch via: `ITCH_PATH` → PATH → `uv run`
+
+**Key design decisions:**
+- Client-side validation before spawning subprocess (fail fast)
+- Environment variable configuration (`ITCH_TIMEOUT`, `ITCH_DEBUG`, `ITCH_PATH`)
+- Structured JSON responses matching Python models
+- Timeout handling with subprocess termination
+- Exit code 130 detection for user cancellation (Ctrl+C)

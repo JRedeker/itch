@@ -1,0 +1,52 @@
+{
+  "name": "opencode-itch",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenCode plugin for Socratic questioning - explore topics through guided inquiry",
+  "main": "index.ts",
+  "types": "index.ts",
+  "files": [
+    "index.ts",
+    "README.md",
+    "INSTRUCTIONS.md"
+  ],
+  "keywords": [
+    "opencode",
+    "plugin",
+    "socratic",
+    "questioning",
+    "itch",
+    "ai-agents",
+    "mcp"
+  ],
+  "author": "jrede",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JRedeker/itch.git",
+    "directory": "plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/JRedeker/itch/issues"
+  },
+  "homepage": "https://github.com/JRedeker/itch#readme",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.0.208"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "bun-types": "^1.2.16",
+    "eslint": "^9.39.2",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.51.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint index.ts",
+    "check": "npm run typecheck && npm run lint"
+  }
+}
