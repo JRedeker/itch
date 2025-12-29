@@ -25,31 +25,97 @@ Workflow:
 3. The tool presents questions to the user and collects their answers
 4. You receive the answers for further discussion
 
-Required question format:
-- Each question needs 'text' (the question) and 'choices' (list of options)
-- Each choice needs 'label' (display text) and 'value' (identifier)
-- Optional: 'id' (auto-assigned if missing), 'allows_custom' (default true)
+Question Types:
+- select: Multiple choice (default) - requires 2+ choices
+- confirm: Yes/No question - no choices needed
+- text: Free-form text input - no choices needed
+- scale: 1-5 rating - no choices needed, optional scale_labels
+- checkbox: Multi-select - requires 1+ choices
 
-Example call:
+Required question format:
+- Each question needs 'text' (the question)
+- 'type' is optional (defaults to "select")
+- 'choices' required for select/checkbox types
+- Each choice needs 'label' (display text) and 'value' (identifier)
+- Optional: 'id' (auto-assigned), 'allows_custom' (default true)
+- Optional: 'scale_labels' for scale type, e.g., ["Not at all", "Completely"]
+
+Example:
 {
   "topic": "machine learning",
   "questions": [
-    {
-      "text": "What interests you most about ML?",
-      "choices": [
-        {"label": "Practical applications", "value": "practical"},
-        {"label": "Theoretical foundations", "value": "theory"}
-      ]
-    }
+    {"text": "What interests you?", "choices": [
+      {"label": "Applications", "value": "apps"},
+      {"label": "Theory", "value": "theory"}
+    ]},
+    {"text": "Continue exploring?", "type": "confirm"},
+    {"text": "Any specific questions?", "type": "text"},
+    {"text": "Confidence level?", "type": "scale", "scale_labels": ["Low", "High"]}
   ]
 }""",
 )
 
 # Constants
 MAX_QUESTIONS = 20
-MIN_CHOICES = 2
+MIN_CHOICES_SELECT = 2
+MIN_CHOICES_CHECKBOX = 1
+SCALE_LABELS_LENGTH = 2
 SESSION_TIMEOUT = 300  # 5 minutes
 SIGINT_EXIT_CODE = 130  # Standard exit code for SIGINT (Ctrl+C)
+
+
+def _validate_choices(q: Question, i: int, min_choices: int) -> str | None:
+    """Validate choices for a question. Returns error message or None."""
+    if len(q.choices) < min_choices:
+        type_name = q.type.capitalize()
+        return f"Question {i + 1}: {type_name} questions require at least {min_choices} choice(s)"
+
+    for j, choice in enumerate(q.choices):
+        if not choice.label or not choice.label.strip():
+            return f"Question {i + 1}, choice {j + 1} is missing label"
+        if not choice.value or not choice.value.strip():
+            return f"Question {i + 1}, choice {j + 1} is missing value"
+
+    return None
+
+
+def _validate_question_type(q: Question, i: int) -> str | None:
+    """Validate type-specific requirements. Returns error message or None."""
+    if q.type == "select":
+        return _validate_choices(q, i, MIN_CHOICES_SELECT)
+    if q.type == "checkbox":
+        return _validate_choices(q, i, MIN_CHOICES_CHECKBOX)
+    if (
+        q.type == "scale"
+        and q.scale_labels is not None
+        and len(q.scale_labels) != SCALE_LABELS_LENGTH
+    ):
+        return f"Question {i + 1}: scale_labels must have exactly 2 elements"
+    # confirm and text types don't require choices
+    return None
+
+
+def _assign_question_id(q: Question, i: int, seen_ids: set[int]) -> tuple[Question, str | None]:
+    """Assign ID to question if needed. Returns (question, error_message)."""
+    if q.id is not None:
+        if q.id in seen_ids:
+            return q, f"Duplicate question ID: {q.id}"
+        seen_ids.add(q.id)
+        return q, None
+
+    # Auto-assign ID
+    new_id = i + 1
+    while new_id in seen_ids:
+        new_id += 1
+    seen_ids.add(new_id)
+    return Question(
+        id=new_id,
+        text=q.text,
+        type=q.type,
+        choices=q.choices,
+        allows_custom=q.allows_custom,
+        scale_labels=q.scale_labels,
+    ), None
 
 
 def validate_questions(
@@ -70,36 +136,16 @@ def validate_questions(
         if not q.text or not q.text.strip():
             return [], f"Question {i + 1} is missing text"
 
-        # Validate choices
-        if len(q.choices) < MIN_CHOICES:
-            return [], f"Question {i + 1} must have at least {MIN_CHOICES} choices"
-
-        for j, choice in enumerate(q.choices):
-            if not choice.label or not choice.label.strip():
-                return [], f"Question {i + 1}, choice {j + 1} is missing label"
-            if not choice.value or not choice.value.strip():
-                return [], f"Question {i + 1}, choice {j + 1} is missing value"
+        # Type-specific validation
+        type_error = _validate_question_type(q, i)
+        if type_error:
+            return [], type_error
 
         # Handle ID assignment
-        if q.id is not None:
-            if q.id in seen_ids:
-                return [], f"Duplicate question ID: {q.id}"
-            seen_ids.add(q.id)
-            processed.append(q)
-        else:
-            # Auto-assign ID
-            new_id = i + 1
-            while new_id in seen_ids:
-                new_id += 1
-            seen_ids.add(new_id)
-            processed.append(
-                Question(
-                    id=new_id,
-                    text=q.text,
-                    choices=q.choices,
-                    allows_custom=q.allows_custom,
-                )
-            )
+        question_with_id, id_error = _assign_question_id(q, i, seen_ids)
+        if id_error:
+            return [], id_error
+        processed.append(question_with_id)
 
     return processed, None
 
@@ -111,8 +157,8 @@ def itch(
         list[Question],
         Field(
             description=(
-                "List of pre-generated questions with choices "
-                "(1-20 questions, each with 2+ choices)"
+                "List of questions (1-20). Types: select (2+ choices), "
+                "confirm, text, scale, checkbox (1+ choices)."
             )
         ),
     ],
@@ -122,25 +168,16 @@ def itch(
     Present pre-generated questions to the user interactively and collect their answers.
     All questions must be provided upfront - the tool does not generate questions.
 
-    Example:
-    ```json
-    {
-      "topic": "machine learning",
-      "questions": [
-        {
-          "text": "What interests you most about ML?",
-          "choices": [
-            {"label": "Practical applications", "value": "practical"},
-            {"label": "Theoretical foundations", "value": "theory"}
-          ]
-        }
-      ]
-    }
-    ```
+    Question types:
+    - select: Multiple choice (default) - requires 2+ choices
+    - confirm: Yes/No boolean question
+    - text: Free-form text input
+    - scale: 1-5 rating with optional endpoint labels
+    - checkbox: Multi-select - requires 1+ choices
 
     Returns:
         ItchResponse with status, topic, questions (echoed), and answers array.
-        Status is 'complete' on success, 'cancelled' if user interrupted, or 'error' on failure.
+        Status is 'complete' on success, 'cancelled' if interrupted, or 'error' on failure.
     """
     # Validate topic
     if not topic or not topic.strip():

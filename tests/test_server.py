@@ -60,15 +60,16 @@ class TestValidateQuestions:
         assert result == []
 
     def test_question_insufficient_choices(self):
-        """Test that question with fewer than 2 choices returns error."""
+        """Test that select question with fewer than 2 choices returns error."""
         questions = [
             Question(
                 text="What is your favorite color?",
+                type="select",
                 choices=[Choice(label="Red", value="red")],
             )
         ]
         result, error = validate_questions(questions)
-        assert error == "Question 1 must have at least 2 choices"
+        assert error == "Question 1: Select questions require at least 2 choice(s)"
         assert result == []
 
     def test_choice_missing_label(self):
@@ -219,3 +220,197 @@ class TestValidateQuestions:
         result, error = validate_questions(questions)
         assert error is None
         assert len(result) == 20
+
+
+class TestQuestionTypeValidation:
+    """Tests for question type-specific validation."""
+
+    def test_confirm_type_no_choices_required(self):
+        """Test that confirm type questions don't require choices."""
+        questions = [
+            Question(
+                text="Do you want to continue?",
+                type="confirm",
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].type == "confirm"
+
+    def test_text_type_no_choices_required(self):
+        """Test that text type questions don't require choices."""
+        questions = [
+            Question(
+                text="What are your thoughts?",
+                type="text",
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].type == "text"
+
+    def test_scale_type_no_choices_required(self):
+        """Test that scale type questions don't require choices."""
+        questions = [
+            Question(
+                text="How confident are you?",
+                type="scale",
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].type == "scale"
+
+    def test_scale_type_with_labels(self):
+        """Test that scale type questions can have optional labels."""
+        questions = [
+            Question(
+                text="How confident are you?",
+                type="scale",
+                scale_labels=("Not at all", "Very confident"),
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].scale_labels == ("Not at all", "Very confident")
+
+    def test_checkbox_type_requires_one_choice(self):
+        """Test that checkbox type requires at least 1 choice."""
+        questions = [
+            Question(
+                text="Which apply?",
+                type="checkbox",
+                choices=[],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error == "Question 1: Checkbox questions require at least 1 choice(s)"
+        assert result == []
+
+    def test_checkbox_type_valid_with_one_choice(self):
+        """Test that checkbox type is valid with 1 choice."""
+        questions = [
+            Question(
+                text="Which apply?",
+                type="checkbox",
+                choices=[Choice(label="Option A", value="a")],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].type == "checkbox"
+
+    def test_select_type_is_default(self):
+        """Test that select is the default type."""
+        questions = [
+            Question(
+                text="Choose one",
+                choices=[
+                    Choice(label="A", value="a"),
+                    Choice(label="B", value="b"),
+                ],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert result[0].type == "select"
+
+    def test_confirm_ignores_choices(self):
+        """Test that confirm type ignores any provided choices."""
+        questions = [
+            Question(
+                text="Continue?",
+                type="confirm",
+                choices=[
+                    Choice(label="Yes", value="yes"),
+                    Choice(label="No", value="no"),
+                ],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        # Choices are preserved but ignored by the questioner
+
+    def test_text_ignores_choices(self):
+        """Test that text type ignores any provided choices."""
+        questions = [
+            Question(
+                text="What do you think?",
+                type="text",
+                choices=[
+                    Choice(label="Option", value="option"),
+                ],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+
+
+class TestMixedQuestionTypes:
+    """Tests for mixed question type sessions."""
+
+    def test_mixed_types_valid(self):
+        """Test that a mix of question types passes validation."""
+        questions = [
+            Question(
+                text="What interests you?",
+                type="select",
+                choices=[
+                    Choice(label="A", value="a"),
+                    Choice(label="B", value="b"),
+                ],
+            ),
+            Question(
+                text="Continue exploring?",
+                type="confirm",
+            ),
+            Question(
+                text="Any specific questions?",
+                type="text",
+            ),
+            Question(
+                text="How confident are you?",
+                type="scale",
+                scale_labels=("Not at all", "Very"),
+            ),
+            Question(
+                text="Which apply to you?",
+                type="checkbox",
+                choices=[
+                    Choice(label="Option 1", value="1"),
+                    Choice(label="Option 2", value="2"),
+                    Choice(label="Option 3", value="3"),
+                ],
+            ),
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 5
+        assert result[0].type == "select"
+        assert result[1].type == "confirm"
+        assert result[2].type == "text"
+        assert result[3].type == "scale"
+        assert result[4].type == "checkbox"
+
+    def test_backward_compatibility_no_type_field(self):
+        """Test that questions without type field work (default to select)."""
+        questions = [
+            Question(
+                text="Old-style question",
+                choices=[
+                    Choice(label="A", value="a"),
+                    Choice(label="B", value="b"),
+                ],
+            )
+        ]
+        result, error = validate_questions(questions)
+        assert error is None
+        assert len(result) == 1
+        assert result[0].type == "select"

@@ -4,6 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# Question types supported by itch
+QuestionType = Literal["select", "confirm", "text", "scale", "checkbox"]
+
 
 class Choice(BaseModel):
     """A single choice option for a question."""
@@ -13,13 +16,25 @@ class Choice(BaseModel):
 
 
 class Question(BaseModel):
-    """A Socratic question with multiple choice answers."""
+    """A Socratic question with configurable type and answer format."""
 
     id: int | None = Field(default=None, description="Question ID (auto-assigned if not provided)")
     text: str = Field(description="The question text to display")
-    choices: list[Choice] = Field(description="List of answer choices (minimum 2 required)")
+    type: QuestionType = Field(
+        default="select",
+        description="Question type: select, confirm, text, scale, or checkbox",
+    )
+    choices: list[Choice] = Field(
+        default_factory=list,
+        description="List of answer choices (required for select/checkbox types)",
+    )
     allows_custom: bool = Field(
-        default=True, description="Whether to show 'Other' option for custom answers"
+        default=True,
+        description="Whether to show 'Other' option (select/checkbox only)",
+    )
+    scale_labels: tuple[str, str] | None = Field(
+        default=None,
+        description="Labels for scale endpoints, e.g., ('Not at all', 'Completely')",
     )
 
 
@@ -27,7 +42,9 @@ class Answer(BaseModel):
     """User's answer to a question."""
 
     question_id: int = Field(description="ID of the question being answered")
-    selected_value: str = Field(description="The value of the selected choice or custom text")
+    selected_value: str = Field(
+        description="Selected choice value, text, or comma-separated checkbox values"
+    )
     is_custom: bool = Field(default=False, description="True if user provided a custom answer")
 
 

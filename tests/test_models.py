@@ -24,6 +24,7 @@ def test_question_model():
     assert question.text == "What is the meaning of life?"
     assert len(question.choices) == 2
     assert question.allows_custom is True
+    assert question.type == "select"  # default type
 
 
 def test_question_model_optional_id():
@@ -37,6 +38,35 @@ def test_question_model_optional_id():
     )
     assert question.id is None
     assert question.text == "What is your name?"
+
+
+def test_question_model_types():
+    """Test Question model with different types."""
+    # Confirm type
+    confirm_q = Question(text="Continue?", type="confirm")
+    assert confirm_q.type == "confirm"
+    assert confirm_q.choices == []
+
+    # Text type
+    text_q = Question(text="Your thoughts?", type="text")
+    assert text_q.type == "text"
+
+    # Scale type with labels
+    scale_q = Question(
+        text="How confident?",
+        type="scale",
+        scale_labels=("Not at all", "Very"),
+    )
+    assert scale_q.type == "scale"
+    assert scale_q.scale_labels == ("Not at all", "Very")
+
+    # Checkbox type
+    checkbox_q = Question(
+        text="Which apply?",
+        type="checkbox",
+        choices=[Choice(label="A", value="a")],
+    )
+    assert checkbox_q.type == "checkbox"
 
 
 def test_answer_model():

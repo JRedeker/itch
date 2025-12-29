@@ -15,9 +15,10 @@ const z = tool.schema;
 // Configuration
 // =============================================================================
 
-const PLUGIN_VERSION = "0.1.0";
+const PLUGIN_VERSION = "0.2.0";
 const DEFAULT_TIMEOUT_MS = 300_000; // 5 minutes
-const MIN_CHOICES = 2;
+const MIN_CHOICES_SELECT = 2;
+const MIN_CHOICES_CHECKBOX = 1;
 const MAX_QUESTIONS = 20;
 
 interface Config {
@@ -45,6 +46,8 @@ function debugLog(config: Config, ...args: unknown[]): void {
 // Zod Schemas (matching Python models in src/itch/models.py)
 // =============================================================================
 
+const QuestionTypeSchema = z.enum(["select", "confirm", "text", "scale", "checkbox"]);
+
 const ChoiceSchema = z.object({
   label: z.string().describe("Display text shown to user"),
   value: z.string().describe("Identifier returned when this choice is selected"),
@@ -58,17 +61,26 @@ const QuestionSchema = z.object({
     .optional()
     .describe("Question ID (auto-assigned if not provided)"),
   text: z.string().min(1).describe("The question text to display"),
+  type: QuestionTypeSchema.default("select").describe(
+    "Question type: select (multiple choice), confirm (yes/no), text (free-form), scale (1-5), checkbox (multi-select)"
+  ),
   choices: z
     .array(ChoiceSchema)
-    .min(MIN_CHOICES)
-    .describe(`List of answer choices (minimum ${MIN_CHOICES} required)`),
+    .optional()
+    .describe("List of answer choices (required for select/checkbox types)"),
   allows_custom: z
     .boolean()
     .default(true)
-    .describe("Whether to show 'Other' option for custom answers"),
+    .describe("Whether to show 'Other' option for custom answers (select/checkbox only)"),
+  scale_labels: z
+    .tuple([z.string(), z.string()])
+    .optional()
+    .describe("Labels for scale endpoints, e.g., ['Not at all', 'Completely']"),
 });
 
 // Type definitions
+type QuestionType = "select" | "confirm" | "text" | "scale" | "checkbox";
+
 interface Choice {
   label: string;
   value: string;
@@ -77,8 +89,10 @@ interface Choice {
 interface Question {
   id?: number;
   text: string;
-  choices: Choice[];
+  type?: QuestionType;
+  choices?: Choice[];
   allows_custom?: boolean;
+  scale_labels?: [string, string];
 }
 
 // Response types (matching Python ItchResponse)
@@ -121,25 +135,46 @@ function validateQuestions(questions: Question[]): string | null {
 
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
+    const qType = q.type ?? "select";
 
     if (!q.text.trim()) {
       return `Question ${i + 1} is missing text`;
     }
 
-    if (q.choices.length < MIN_CHOICES) {
-      return `Question ${i + 1} must have at least ${MIN_CHOICES} choices`;
-    }
-
-    // Validate each choice
-    for (let j = 0; j < q.choices.length; j++) {
-      const c = q.choices[j];
-      if (!c.label.trim()) {
-        return `Question ${i + 1}, choice ${j + 1} is missing a label`;
+    // Type-specific validation
+    if (qType === "select") {
+      const choices = q.choices ?? [];
+      if (choices.length < MIN_CHOICES_SELECT) {
+        return `Question ${i + 1}: Select questions require at least ${MIN_CHOICES_SELECT} choices`;
       }
-      if (!c.value.trim()) {
-        return `Question ${i + 1}, choice ${j + 1} is missing a value`;
+      for (let j = 0; j < choices.length; j++) {
+        const c = choices[j];
+        if (!c.label.trim()) {
+          return `Question ${i + 1}, choice ${j + 1} is missing a label`;
+        }
+        if (!c.value.trim()) {
+          return `Question ${i + 1}, choice ${j + 1} is missing a value`;
+        }
       }
+    } else if (qType === "checkbox") {
+      const choices = q.choices ?? [];
+      if (choices.length < MIN_CHOICES_CHECKBOX) {
+        return `Question ${i + 1}: Checkbox questions require at least ${MIN_CHOICES_CHECKBOX} choice`;
+      }
+      for (let j = 0; j < choices.length; j++) {
+        const c = choices[j];
+        if (!c.label.trim()) {
+          return `Question ${i + 1}, choice ${j + 1} is missing a label`;
+        }
+        if (!c.value.trim()) {
+          return `Question ${i + 1}, choice ${j + 1} is missing a value`;
+        }
+      }
+    } else if (qType === "scale") {
+      // scale_labels is optional but if provided must have 2 elements (enforced by Zod tuple)
+      // No additional validation needed here
     }
+    // confirm and text types don't require choices
   }
 
   return null; // Valid
@@ -324,7 +359,7 @@ const ItchPlugin: Plugin = (ctx) => {
       itch: tool({
         description:
           "Present Socratic questions to the user interactively and collect their answers. " +
-          "The user will see a rich terminal interface to select from choices or provide custom answers. " +
+          "Supports multiple question types: select (multiple choice), confirm (yes/no), text (free-form), scale (1-5 rating), checkbox (multi-select). " +
           "Use this to explore topics, gather preferences, or guide decision-making through thoughtful inquiry.",
         args: {
           topic: z.string().min(1).describe("The topic being explored through questioning"),
@@ -332,7 +367,10 @@ const ItchPlugin: Plugin = (ctx) => {
             .array(QuestionSchema)
             .min(1)
             .max(MAX_QUESTIONS)
-            .describe(`Array of questions to ask (1-${MAX_QUESTIONS})`),
+            .describe(
+              `Array of questions to ask (1-${MAX_QUESTIONS}). Each question has 'text' and optional 'type' (defaults to 'select'). ` +
+              "Types: select (needs 2+ choices), confirm (yes/no), text (free-form), scale (1-5), checkbox (needs 1+ choices)."
+            ),
         },
         async execute(args) {
           debugLog(config, `itch tool called with topic: ${args.topic}`);
@@ -352,10 +390,11 @@ const ItchPlugin: Plugin = (ctx) => {
             return JSON.stringify(response, null, 2);
           }
 
-          // Auto-assign IDs if not provided
-          const questionsWithIds = questions.map((q, i) => ({
+          // Auto-assign IDs if not provided, ensure type defaults
+          const questionsWithDefaults = questions.map((q, i) => ({
             ...q,
             id: q.id ?? i + 1,
+            type: q.type ?? "select",
           }));
 
           // Execute the Python CLI
@@ -363,7 +402,7 @@ const ItchPlugin: Plugin = (ctx) => {
             config,
             ctx.$ as unknown as BunShell,
             args.topic,
-            questionsWithIds
+            questionsWithDefaults
           );
 
           debugLog(config, `Response status: ${response.status}`);

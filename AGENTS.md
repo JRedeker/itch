@@ -40,8 +40,8 @@ Itch is an MCP server and CLI tool for Socratic questioning. It enables AI agent
 |------|-------------|
 | `src/itch/server.py` | MCP server with single `itch` tool |
 | `src/itch/cli.py` | Typer CLI with `ask`, `demo`, `version` commands |
-| `src/itch/models.py` | Pydantic models (Question, Choice, Answer, ItchResponse) |
-| `src/itch/questioner.py` | Interactive questionnaire using questionary |
+| `src/itch/models.py` | Pydantic models (Question, Choice, Answer, ItchResponse, QuestionType) |
+| `src/itch/questioner.py` | Interactive questionnaire with type-specific handlers |
 | `src/itch/prompts.py` | Internal prompt templates (NOT exposed via MCP) |
 | `plugin/index.ts` | OpenCode plugin (TypeScript wrapper for Python CLI) |
 
@@ -256,7 +256,7 @@ This project uses OpenSpec for spec-driven development. See `openspec/AGENTS.md`
 - Changing architecture or patterns
 
 **Current changes:**
-- `add-opencode-plugin` - OpenCode plugin implementation (46/49 tasks complete)
+- `add-question-types` - Add multiple question types (select, confirm, text, scale, checkbox)
 
 <!-- OPENSPEC:START -->
 Always open `@/openspec/AGENTS.md` when the request:
