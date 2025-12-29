@@ -15,24 +15,19 @@ MCP server and CLI tool for Socratic questioning - helps AI agents interactively
 
 The OpenCode plugin provides seamless integration with [OpenCode](https://opencode.ai).
 
-**Step 1: Install the Python package**
+**Step 1: Clone and install**
 
 ```bash
-# Using pip
-pip install itch
-
-# Using pipx (recommended for CLI tools)
-pipx install itch
-
-# Using uv
-uv pip install itch
+git clone https://github.com/JRedeker/itch.git
+cd itch
+uv sync
 ```
 
 **Step 2: Add to opencode.json**
 
 ```json
 {
-  "plugins": ["opencode-itch"]
+  "plugins": ["/path/to/itch/plugin"]
 }
 ```
 
@@ -50,7 +45,7 @@ See [plugin/README.md](plugin/README.md) for more details.
 
 For use with Claude Desktop, Cursor, or other MCP clients.
 
-**Step 1: Install from source**
+**Step 1: Clone and install**
 
 ```bash
 git clone https://github.com/JRedeker/itch.git
@@ -79,8 +74,8 @@ uv sync
 Try the interactive demo to see how it works:
 
 ```bash
-itch demo learning
-itch demo "machine learning" --max 5
+uv run itch demo learning
+uv run itch demo "machine learning" --max 5
 ```
 
 ### As MCP Server
