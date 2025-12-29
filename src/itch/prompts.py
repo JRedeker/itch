@@ -4,7 +4,27 @@ NOTE: These templates are for INTERNAL USE ONLY (CLI demo command).
 They are NOT exposed via MCP - AI agents generate questions independently.
 """
 
-SOCRATIC_SYSTEM_PROMPT = """You are a Socratic questioner. Your role is to help users explore topics deeply through thoughtful, probing questions.
+from typing import TypedDict
+
+
+class ChoiceDict(TypedDict):
+    """Type hint for choice dict structure."""
+
+    label: str
+    value: str
+
+
+class QuestionDict(TypedDict):
+    """Type hint for question dict structure."""
+
+    id: int
+    text: str
+    choices: list[ChoiceDict]
+
+
+SOCRATIC_SYSTEM_PROMPT = """\
+You are a Socratic questioner. Your role is to help users explore topics deeply
+through thoughtful, probing questions.
 
 When given a topic, generate questions that:
 1. Start with fundamental concepts and progressively go deeper
@@ -13,9 +33,11 @@ When given a topic, generate questions that:
 4. Are open-ended but can be answered with provided choices
 5. Build upon each other to create a coherent exploration
 
-For each question, provide 3-4 meaningful multiple choice options that represent different perspectives or levels of understanding."""
+For each question, provide 3-4 meaningful multiple choice options that represent
+different perspectives or levels of understanding."""
 
-QUESTION_GENERATION_PROMPT = """Generate {max_questions} Socratic questions about the topic: "{topic}"
+QUESTION_GENERATION_PROMPT = """\
+Generate {max_questions} Socratic questions about the topic: "{topic}"
 
 For each question, provide:
 1. The question text
@@ -49,7 +71,7 @@ def get_question_generation_prompt(topic: str, max_questions: int) -> str:
 
 
 # Example questions for demonstration/fallback
-EXAMPLE_QUESTIONS = {
+EXAMPLE_QUESTIONS: dict[str, list[QuestionDict]] = {
     "learning": [
         {
             "id": 1,

@@ -1,14 +1,17 @@
 """Typer CLI for Itch - Interactive Socratic questioning."""
 
+from __future__ import annotations
+
 import json
 import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 
 from itch.models import Choice, Question
+from itch.prompts import ChoiceDict, QuestionDict
 from itch.questioner import display_summary, run_questionnaire
 
 app = typer.Typer(
@@ -25,6 +28,7 @@ def ask(
     questions: Annotated[
         str, typer.Option("--questions", "-q", help="JSON string of questions to ask")
     ],
+    *,
     output_json: Annotated[
         bool, typer.Option("--json", "-j", help="Output answers as JSON")
     ] = True,
@@ -53,16 +57,16 @@ def ask(
 
         if output_json:
             # Output JSON for the MCP server to parse
-            print(json.dumps([a.model_dump() for a in answers]))
+            sys.stdout.write(json.dumps([a.model_dump() for a in answers]) + "\n")
         else:
             display_summary(topic, question_models, answers)
 
     except json.JSONDecodeError as e:
         typer.echo(f"Error parsing questions JSON: {e}", err=True)
-        raise typer.Exit(1)
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
+    except KeyboardInterrupt:
+        typer.echo("Session cancelled by user", err=True)
+        raise typer.Exit(130) from None
 
 
 @app.command()
@@ -86,48 +90,49 @@ def demo(
     )
 
     # Use example questions or generate simple ones
+    questions_data: list[QuestionDict]
     if topic.lower() in EXAMPLE_QUESTIONS:
         questions_data = EXAMPLE_QUESTIONS[topic.lower()][:max_questions]
     else:
         # Generate simple fallback questions
         questions_data = [
-            {
-                "id": 1,
-                "text": f"What aspect of '{topic}' interests you most?",
-                "choices": [
-                    {"label": "The fundamentals and basics", "value": "basics"},
-                    {"label": "Advanced concepts", "value": "advanced"},
-                    {"label": "Practical applications", "value": "practical"},
-                    {"label": "Historical context", "value": "history"},
+            QuestionDict(
+                id=1,
+                text=f"What aspect of '{topic}' interests you most?",
+                choices=[
+                    ChoiceDict(label="The fundamentals and basics", value="basics"),
+                    ChoiceDict(label="Advanced concepts", value="advanced"),
+                    ChoiceDict(label="Practical applications", value="practical"),
+                    ChoiceDict(label="Historical context", value="history"),
                 ],
-            },
-            {
-                "id": 2,
-                "text": f"How would you describe your current understanding of '{topic}'?",
-                "choices": [
-                    {"label": "Complete beginner", "value": "beginner"},
-                    {"label": "Some familiarity", "value": "familiar"},
-                    {"label": "Intermediate knowledge", "value": "intermediate"},
-                    {"label": "Expert level", "value": "expert"},
+            ),
+            QuestionDict(
+                id=2,
+                text=f"How would you describe your current understanding of '{topic}'?",
+                choices=[
+                    ChoiceDict(label="Complete beginner", value="beginner"),
+                    ChoiceDict(label="Some familiarity", value="familiar"),
+                    ChoiceDict(label="Intermediate knowledge", value="intermediate"),
+                    ChoiceDict(label="Expert level", value="expert"),
                 ],
-            },
-            {
-                "id": 3,
-                "text": f"What would make exploring '{topic}' most valuable to you?",
-                "choices": [
-                    {"label": "Clear explanations of concepts", "value": "clarity"},
-                    {"label": "Hands-on examples", "value": "examples"},
-                    {"label": "Connections to other ideas", "value": "connections"},
-                    {"label": "Challenging my assumptions", "value": "challenge"},
+            ),
+            QuestionDict(
+                id=3,
+                text=f"What would make exploring '{topic}' most valuable to you?",
+                choices=[
+                    ChoiceDict(label="Clear explanations of concepts", value="clarity"),
+                    ChoiceDict(label="Hands-on examples", value="examples"),
+                    ChoiceDict(label="Connections to other ideas", value="connections"),
+                    ChoiceDict(label="Challenging my assumptions", value="challenge"),
                 ],
-            },
+            ),
         ][:max_questions]
 
     question_models = [
         Question(
             id=q["id"],
             text=q["text"],
-            choices=[Choice(**c) for c in q["choices"]],
+            choices=[Choice(label=c["label"], value=c["value"]) for c in q["choices"]],
             allows_custom=True,
         )
         for q in questions_data
@@ -152,7 +157,6 @@ def main() -> None:
     This CLI provides interactive questioning capabilities that AI agents
     can use to explore topics with users through the Socratic method.
     """
-    pass
 
 
 if __name__ == "__main__":

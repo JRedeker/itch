@@ -1,7 +1,5 @@
 """Tests for the MCP server validation logic."""
 
-import pytest
-
 from itch.models import Choice, Question
 from itch.server import validate_questions
 

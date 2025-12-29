@@ -20,8 +20,6 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
-    "ruff>=0.5.0",
-    "mypy>=1.10.0",
 ]
 
 [project.scripts]
@@ -38,9 +36,93 @@ packages = ["src/itch"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "ANN",    # flake8-annotations
+    "ASYNC",  # flake8-async
+    "S",      # flake8-bandit (security)
+    "BLE",    # flake8-blind-except
+    "FBT",    # flake8-boolean-trap
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "COM",    # flake8-commas
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "T10",    # flake8-debugger
+    "EM",     # flake8-errmsg
+    "FA",     # flake8-future-annotations
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "LOG",    # flake8-logging
+    "G",      # flake8-logging-format
+    "INP",    # flake8-no-pep420
+    "PIE",    # flake8-pie
+    "T20",    # flake8-print
+    "PYI",    # flake8-pyi
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SLF",    # flake8-self
+    "SLOT",   # flake8-slots
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports
+    "TCH",    # flake8-type-checking
+    "INT",    # flake8-gettext
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "TD",     # flake8-todos
+    "FIX",    # flake8-fixme
+    "ERA",    # eradicate (commented-out code)
+    "PL",     # pylint
+    "TRY",    # tryceratops
+    "FLY",    # flynt
+    "PERF",   # perflint
+    "FURB",   # refurb
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "COM812",  # missing trailing comma (conflicts with formatter)
+    "ISC001",  # single-line implicit string concat (conflicts with formatter)
+    "TD003",   # missing issue link in TODO
+    "FIX002",  # line contains TODO
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/itch/cli.py" = [
+    "PLC0415", # allow lazy imports in CLI commands for faster startup
+]
+"src/itch/server.py" = [
+    "PLR0911", # validation functions have multiple return paths by design
+]
+"tests/**/*.py" = [
+    "S101",    # assert allowed in tests
+    "ANN201",  # return type annotations not required in tests
+    "ARG",     # unused arguments (fixtures)
+    "FBT",     # boolean positional args in tests
+    "PLR2004", # magic values in tests
+    "SLF001",  # private member access in tests
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["itch"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pylint]
+max-args = 6
+
+[tool.ty.environment]
+python-version = "3.11"
 
 [tool.mypy]
 python_version = "3.11"
@@ -49,3 +131,11 @@ strict = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.14.10",
+    "ty>=0.0.8",
+]

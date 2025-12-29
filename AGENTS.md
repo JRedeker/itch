@@ -60,14 +60,17 @@ uv run pytest --cov=itch
 ## Linting & Type Checking
 
 ```bash
-# Run ruff linter
+# Run ruff linter (strict ruleset)
 uv run ruff check src/ tests/
 
 # Run ruff with auto-fix
 uv run ruff check --fix src/ tests/
 
-# Run mypy type checker
-uv run mypy src/
+# Run ty type checker (Astral's fast type checker)
+uv run ty check src/
+
+# Run all checks
+uv run ruff check src/ tests/ && uv run ty check src/ && uv run pytest
 ```
 
 ## Code Style Guidelines
@@ -78,8 +81,8 @@ uv run mypy src/
 
 ### Formatting
 - Line length: 100 characters
-- Use ruff for linting (rules: E, F, I, N, W, UP)
-- Use mypy with strict mode for type checking
+- Use ruff for linting with strict ruleset (50+ rule categories enabled)
+- Use ty for type checking (Astral's 10,500+ tokens/sec type checker)
 
 ### Imports
 Order imports as: stdlib, third-party, local. Use absolute imports.

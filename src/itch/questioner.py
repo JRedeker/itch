@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from itch.models import Answer, Choice, Question
+from itch.models import Answer, Question
 
 console = Console()
 

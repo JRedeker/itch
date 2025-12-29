@@ -8,12 +8,13 @@ from typing import Annotated
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from itch.models import Answer, Choice, ItchResponse, Question
+from itch.models import Answer, ItchResponse, Question
 
 # Create the MCP server
 mcp = FastMCP(
     "Itch",
-    instructions="""Itch is a Socratic questioning tool that helps explore topics through interactive dialogue.
+    instructions="""\
+Itch is a Socratic questioning tool that helps explore topics through interactive dialogue.
 
 Use the 'itch' tool to run an interactive questioning session with the user.
 You must provide ALL questions upfront - the tool does not generate questions.
@@ -48,6 +49,7 @@ Example call:
 MAX_QUESTIONS = 20
 MIN_CHOICES = 2
 SESSION_TIMEOUT = 300  # 5 minutes
+SIGINT_EXIT_CODE = 130  # Standard exit code for SIGINT (Ctrl+C)
 
 
 def validate_questions(
@@ -108,7 +110,10 @@ def itch(
     questions: Annotated[
         list[Question],
         Field(
-            description="List of pre-generated questions with choices (1-20 questions, each with 2+ choices)"
+            description=(
+                "List of pre-generated questions with choices "
+                "(1-20 questions, each with 2+ choices)"
+            )
         ),
     ],
 ) -> ItchResponse:
@@ -161,7 +166,7 @@ def itch(
 
     try:
         # Run the CLI subprocess to collect answers
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -175,13 +180,14 @@ def itch(
             capture_output=True,
             text=True,
             timeout=SESSION_TIMEOUT,
+            check=False,
         )
 
         # Check for cancellation (indicated by specific return code or empty output)
         if result.returncode != 0:
             stderr = result.stderr.strip() if result.stderr else ""
             # Check if it was a user cancellation
-            if "cancelled" in stderr.lower() or result.returncode == 130:
+            if "cancelled" in stderr.lower() or result.returncode == SIGINT_EXIT_CODE:
                 # Try to parse partial answers from stdout
                 partial_answers: list[Answer] = []
                 if result.stdout.strip():
@@ -230,12 +236,12 @@ def itch(
             questions=processed_questions,
             error="Session timed out after 5 minutes",
         )
-    except Exception as e:
+    except OSError as e:
         return ItchResponse(
             status="error",
             topic=topic,
             questions=processed_questions,
-            error=str(e),
+            error=f"Failed to run CLI: {e}",
         )
 
 
