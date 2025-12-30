@@ -6,8 +6,11 @@
  * user interaction via questionary.
  */
 
-import type { Plugin } from "@opencode-ai/plugin";
+import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
+
+// Extract BunShell type from PluginInput
+type BunShell = PluginInput["$"];
 
 const z = tool.schema;
 
@@ -109,12 +112,6 @@ interface ItchResponse {
   answers: Answer[];
   error?: string;
 }
-
-// BunShell type (simplified for our use case)
-type BunShell = (
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-) => { quiet(): Promise<unknown> };
 
 // =============================================================================
 // Client-Side Validation
@@ -249,31 +246,21 @@ async function executeItch(
   debugLog(config, `Executing: ${cmd.join(" ")} ask --topic "${topic}" --questions '...'`);
 
   try {
-    // Build the command based on the resolved path
-    const args = ["ask", "--topic", topic, "--questions", questionsJson, "--json"];
+    // Build the full command - use { raw: string } to pass pre-escaped command
+    const fullCmd = [...cmd, "ask", "--topic", topic, "--questions", questionsJson, "--json"];
+    
+    // Use shell escape to safely pass each argument
+    const escaped = fullCmd.map(arg => $.escape(arg)).join(" ");
+    
+    debugLog(config, `Full command: ${escaped}`);
 
-    const proc = Bun.spawn([...cmd, ...args], {
-      stdout: "pipe",
-      stderr: "pipe",
-      stdin: "inherit", // Allow interactive input
-    });
-
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      proc.kill();
-    }, config.timeout);
-
-    let exitCode: number;
-    try {
-      exitCode = await proc.exited;
-      clearTimeout(timeoutId);
-    } catch {
-      clearTimeout(timeoutId);
-      throw new Error(`Subprocess timed out after ${config.timeout}ms`);
-    }
-
-    const stdout = (await new Response(proc.stdout).text()).trim();
-    const stderr = (await new Response(proc.stderr).text()).trim();
+    // Execute using the shell API with nothrow to handle non-zero exits
+    // Use { raw: string } to pass the pre-escaped command string directly
+    const result = await $`${{ raw: escaped }}`.nothrow().quiet();
+    
+    const stdout = result.text().trim();
+    const stderr = result.stderr.toString().trim();
+    const exitCode = result.exitCode;
 
     debugLog(config, `Exit code: ${exitCode}`);
     debugLog(config, `stdout: ${stdout}`);
@@ -400,7 +387,7 @@ const ItchPlugin: Plugin = (ctx) => {
           // Execute the Python CLI
           const response = await executeItch(
             config,
-            ctx.$ as unknown as BunShell,
+            ctx.$,
             args.topic,
             questionsWithDefaults
           );
