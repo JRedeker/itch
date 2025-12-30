@@ -87,6 +87,7 @@
 
 - [x] 8.1 Run `openspec validate remove-mcp-server --strict`
   - **Verify**: Validation passes ✓
-- [ ] 8.2 Update spec statuses after implementation approved
-- [ ] 8.3 Archive the change: `openspec archive remove-mcp-server --yes`
-  - **Verify**: Change moved to `changes/archive/`
+- [x] 8.2 Update spec statuses after implementation approved
+  - **Verify**: Specs updated, mcp-server spec deleted
+- [x] 8.3 Archive the change: `openspec archive remove-mcp-server --yes`
+  - **Verify**: Change moved to `changes/archive/2025-12-30-remove-mcp-server/`
