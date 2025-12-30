@@ -1,7 +1,7 @@
 """Socratic questioning prompts and templates.
 
 NOTE: These templates are for INTERNAL USE ONLY (CLI demo command).
-They are NOT exposed via MCP - AI agents generate questions independently.
+AI agents generate questions independently before calling the tool.
 """
 
 from typing import TypedDict

@@ -35,8 +35,8 @@ def ask(
 ) -> None:
     """Ask questions interactively and collect user answers.
 
-    This command is typically called by the MCP server to run the interactive
-    questioning session.
+    This command is typically called by the OpenCode plugin to run the
+    interactive questioning session.
     """
     try:
         questions_data = json.loads(questions)
@@ -47,8 +47,10 @@ def ask(
             Question(
                 id=q.get("id", i + 1),
                 text=q["text"],
+                type=q.get("type", "select"),
                 choices=[Choice(**c) for c in q.get("choices", [])],
                 allows_custom=q.get("allows_custom", True),
+                scale_labels=tuple(q["scale_labels"]) if q.get("scale_labels") else None,
             )
             for i, q in enumerate(questions_data)
         ]
@@ -56,7 +58,7 @@ def ask(
         answers = run_questionnaire(question_models)
 
         if output_json:
-            # Output JSON for the MCP server to parse
+            # Output JSON for the plugin to parse
             sys.stdout.write(json.dumps([a.model_dump() for a in answers]) + "\n")
         else:
             display_summary(topic, question_models, answers)

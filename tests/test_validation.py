@@ -1,7 +1,7 @@
-"""Tests for the MCP server validation logic."""
+"""Tests for the validation logic."""
 
 from itch.models import Choice, Question
-from itch.server import validate_questions
+from itch.validation import validate_questions
 
 
 class TestValidateQuestions:

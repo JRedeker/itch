@@ -4,24 +4,24 @@ Instructions for AI coding agents working on this project.
 
 ## Project Overview
 
-Itch is an MCP server and CLI tool for Socratic questioning. It enables AI agents to interactively explore topics with users through pre-generated questions.
+Itch is a CLI tool and OpenCode plugin for Socratic questioning. It enables AI agents to interactively explore topics with users through pre-generated questions.
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Integration Options                     │
-├─────────────────────────────┬───────────────────────────────┤
-│   OpenCode Plugin           │   MCP Server                  │
-│   (plugin/index.ts)         │   (src/itch/server.py)        │
-│   - TypeScript wrapper      │   - FastMCP server            │
-│   - Spawns Python CLI       │   - Direct Python execution   │
-└─────────────────────────────┴───────────────────────────────┘
+│                      OpenCode Plugin                         │
+│   (plugin/index.ts)                                          │
+│   - TypeScript wrapper                                       │
+│   - Spawns Python CLI                                        │
+│   - Client-side validation                                   │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     Python CLI Layer                         │
 │   src/itch/cli.py - Typer CLI (ask, demo, version)          │
+│   src/itch/validation.py - Shared validation logic          │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -38,11 +38,11 @@ Itch is an MCP server and CLI tool for Socratic questioning. It enables AI agent
 
 | File | Description |
 |------|-------------|
-| `src/itch/server.py` | MCP server with single `itch` tool |
 | `src/itch/cli.py` | Typer CLI with `ask`, `demo`, `version` commands |
+| `src/itch/validation.py` | Question validation logic |
 | `src/itch/models.py` | Pydantic models (Question, Choice, Answer, ItchResponse, QuestionType) |
 | `src/itch/questioner.py` | Interactive questionnaire with type-specific handlers |
-| `src/itch/prompts.py` | Internal prompt templates (NOT exposed via MCP) |
+| `src/itch/prompts.py` | Internal prompt templates for demo command |
 | `plugin/index.ts` | OpenCode plugin (TypeScript wrapper for Python CLI) |
 
 ## Build & Development Commands
@@ -55,9 +55,6 @@ uv sync
 
 # Install with dev dependencies  
 uv sync --all-extras
-
-# Run MCP server
-uv run itch-server
 
 # Run CLI
 uv run itch --help
@@ -109,13 +106,13 @@ uv run pytest
 uv run pytest -v
 
 # Run a single test file
-uv run pytest tests/test_server.py
+uv run pytest tests/test_validation.py
 
 # Run a single test class
-uv run pytest tests/test_server.py::TestValidateQuestions
+uv run pytest tests/test_validation.py::TestValidateQuestions
 
 # Run a single test method
-uv run pytest tests/test_server.py::TestValidateQuestions::test_empty_questions_list
+uv run pytest tests/test_validation.py::TestValidateQuestions::test_empty_questions_list
 
 # Run tests matching a pattern
 uv run pytest -k "validation"
@@ -171,7 +168,6 @@ Order imports as: stdlib, third-party, local. Use absolute imports.
 import json
 from typing import Annotated, Literal
 
-from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from itch.models import Answer, Choice, Question
@@ -196,7 +192,7 @@ class Choice(BaseModel):
 ```
 
 **Error Handling:**
-- Return structured error responses, don't raise exceptions to MCP clients
+- Return structured error responses
 - Use tuple returns for validation: `(result, error_message)`
 - Include context in error messages (e.g., question index)
 
@@ -255,9 +251,6 @@ This project uses OpenSpec for spec-driven development. See `openspec/AGENTS.md`
 - Making breaking changes
 - Changing architecture or patterns
 
-**Current changes:**
-- `add-question-types` - Add multiple question types (select, confirm, text, scale, checkbox)
-
 <!-- OPENSPEC:START -->
 Always open `@/openspec/AGENTS.md` when the request:
 - Mentions planning or proposals (words like proposal, spec, change, plan)
@@ -267,7 +260,7 @@ Always open `@/openspec/AGENTS.md` when the request:
 
 ## Plugin Architecture Notes
 
-The OpenCode plugin (`plugin/index.ts`) uses a hybrid architecture:
+The OpenCode plugin (`plugin/index.ts`) is the sole integration path for AI agents:
 
 1. **TypeScript wrapper** - Registers `itch` tool with OpenCode
 2. **Python subprocess** - Spawns `itch ask` CLI for interactive questioning
@@ -279,3 +272,5 @@ The OpenCode plugin (`plugin/index.ts`) uses a hybrid architecture:
 - Structured JSON responses matching Python models
 - Timeout handling with subprocess termination
 - Exit code 130 detection for user cancellation (Ctrl+C)
+
+

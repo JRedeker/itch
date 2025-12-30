@@ -1,15 +1,14 @@
 [project]
 name = "itch"
-version = "0.1.0"
-description = "MCP server and CLI tool for Socratic questioning - helps AI agents interactively explore topics with users"
+version = "0.2.0"
+description = "CLI tool for Socratic questioning - helps AI agents interactively explore topics with users"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "jrede" }]
-keywords = ["mcp", "cli", "socratic", "questioning", "ai-agents"]
+keywords = ["cli", "socratic", "questioning", "ai-agents", "opencode"]
 
 dependencies = [
-    "mcp>=1.0.0",
     "typer>=0.12.0",
     "rich>=13.0.0",
     "questionary>=2.0.0",
@@ -24,7 +23,6 @@ dev = [
 
 [project.scripts]
 itch = "itch.cli:app"
-itch-server = "itch.server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -100,7 +98,7 @@ ignore = [
 "src/itch/cli.py" = [
     "PLC0415", # allow lazy imports in CLI commands for faster startup
 ]
-"src/itch/server.py" = [
+"src/itch/validation.py" = [
     "PLR0911", # validation functions have multiple return paths by design
 ]
 "tests/**/*.py" = [

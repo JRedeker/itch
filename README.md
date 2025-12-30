@@ -1,6 +1,6 @@
 # Itch
 
-MCP server and CLI tool for Socratic questioning - helps AI agents interactively explore topics with users through guided inquiry.
+CLI tool and OpenCode plugin for Socratic questioning - helps AI agents interactively explore topics with users through guided inquiry.
 
 ## Features
 
@@ -8,11 +8,11 @@ MCP server and CLI tool for Socratic questioning - helps AI agents interactively
 - **Multiple question types**: select (multiple choice), confirm (yes/no), text (free-form), scale (1-5 rating), checkbox (multi-select)
 - Optional custom "Other" responses for select/checkbox questions
 - Structured JSON responses for AI agent consumption
-- Two integration options: OpenCode plugin or standalone MCP server
+- Seamless integration with [OpenCode](https://opencode.ai)
 
 ## Installation
 
-### Option 1: OpenCode Plugin (Recommended)
+### OpenCode Plugin
 
 The OpenCode plugin provides seamless integration with [OpenCode](https://opencode.ai).
 
@@ -42,32 +42,6 @@ uv sync
 
 See [plugin/README.md](plugin/README.md) for more details.
 
-### Option 2: MCP Server
-
-For use with Claude Desktop, Cursor, or other MCP clients.
-
-**Step 1: Clone and install**
-
-```bash
-git clone https://github.com/JRedeker/itch.git
-cd itch
-uv sync
-```
-
-**Step 2: Add to your MCP client config**
-
-```json
-{
-  "mcpServers": {
-    "itch": {
-      "command": "uv",
-      "args": ["run", "itch-server"],
-      "cwd": "/path/to/itch"
-    }
-  }
-}
-```
-
 ## Usage
 
 ### CLI Demo
@@ -77,12 +51,6 @@ Try the interactive demo to see how it works:
 ```bash
 uv run itch demo learning
 uv run itch demo "machine learning" --max 5
-```
-
-### As MCP Server
-
-```bash
-uv run itch-server
 ```
 
 ## Question Types
@@ -203,6 +171,21 @@ The `itch` tool accepts a topic and pre-generated questions, then presents them 
 - **Checkbox questions**: Must have at least 1 choice
 - **Each choice**: Must have non-empty label and value
 - **Scale labels**: If provided, must be exactly 2 elements
+
+## Migrating from MCP Server
+
+If you were using the MCP server (`itch-server`) in versions prior to 0.2.0, you'll need to migrate to the OpenCode plugin:
+
+1. **Remove MCP server configuration** from your Claude Desktop or other MCP client config
+2. **Install the OpenCode plugin** by adding the plugin path to your `opencode.json`:
+   ```json
+   {
+     "plugins": ["/path/to/itch/plugin"]
+   }
+   ```
+3. **Update your dependencies**: Run `uv sync` to remove the unused `mcp` dependency
+
+The `itch` tool functionality remains identical - only the integration method has changed.
 
 ## Development
 
